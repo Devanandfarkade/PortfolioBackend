@@ -51,7 +51,7 @@ app.use("/api/admin", adminRoutes);
 app.get("/", (req, res) => {
   res.json({
     status: "online",
-    message: "Antigravity Portfolio Backend API - Online and Secured.",
+    message: "Devanand Portfolio Backend API - Online and Secured.",
     version: "1.0.0"
   });
 });

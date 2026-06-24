@@ -1,4 +1,5 @@
 import * as messagesModel from "../models/messagesModel.js";
+import { sendContactEmail, sendThankYouEmail } from "./mailService.js";
 
 export async function getInbox() {
   return await messagesModel.getAllMessages();
@@ -15,7 +16,30 @@ export async function submitContactMessage({ name, email, subject, message, ipAd
     throw new Error("Invalid email address format.");
   }
 
-  return await messagesModel.createMessage({ name, email, subject, message, ipAddress });
+  // 1. Save to Database
+  const savedMessage = await messagesModel.createMessage({ name, email, subject, message, ipAddress });
+
+  // 2. Dispatch Email Transmission to Admin
+  try {
+    console.log(`[SMTP] Dispatching admin notification email...`);
+    await sendContactEmail({ name, email, subject, message, ipAddress });
+    console.log(`[SMTP] Admin notification email dispatched successfully.`);
+  } catch (mailError) {
+    console.error("[SMTP] Critical: Email dispatch to admin failed:", mailError);
+    throw new Error(`Message saved to database, but email dispatch failed: ${mailError.message}`);
+  }
+
+  // 3. Dispatch Auto-Reply Acknowledgment to Sender
+  try {
+    console.log(`[SMTP] Dispatching sender thank-you auto-reply to: ${email}...`);
+    await sendThankYouEmail({ name, email, subject });
+    console.log(`[SMTP] Sender thank-you auto-reply dispatched successfully.`);
+  } catch (replyError) {
+    console.warn("[SMTP] Warning: Handshake confirmation auto-reply failed:", replyError);
+    // Do not throw so the overall submit contact process succeeds
+  }
+
+  return savedMessage;
 }
 
 export async function markMessageRead(id, isRead) {
